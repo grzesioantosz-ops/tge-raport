@@ -430,19 +430,83 @@ def send_email(subject: str, html_body: str, chart_png: bytes):
         print(f"✓ Email wysłany do: {RECIPIENT}")
 
 
+# ── Pomocnicze: email o braku danych ─────────────────────────────────────────
+
+def send_no_data_email(delivery_date: date, reason: str):
+    """Wysyła prosty email informujący o braku danych (bez załącznika)."""
+    weekdays = ["poniedziałek", "wtorek", "środa", "czwartek", "piątek", "sobota", "niedziela"]
+    weekday = weekdays[delivery_date.weekday()]
+    html = f"""<!DOCTYPE html><html lang="pl"><head><meta charset="UTF-8"></head>
+<body style="font-family:Arial,sans-serif;background:#f4f4f4;padding:24px;">
+ <div style="max-width:500px;margin:0 auto;background:#fff;border-radius:10px;padding:32px;
+             box-shadow:0 2px 12px rgba(0,0,0,0.08);">
+  <h2 style="color:#1a3c5e;margin-top:0;">⚡ Raport TGE RDN</h2>
+  <p style="color:#555;">
+    Dostawa: <strong>{delivery_date.strftime('%d.%m.%Y')}</strong> ({weekday})
+  </p>
+  <div style="background:#fff8e6;border-left:4px solid #EF9F27;padding:14px 18px;
+              border-radius:4px;margin:16px 0;">
+    <p style="margin:0;color:#7a5200;font-size:14px;">
+      ℹ️ <strong>Brak danych do wysłania</strong><br>
+      {reason}
+    </p>
+  </div>
+  <p style="font-size:12px;color:#aaa;margin-bottom:0;">
+    Raport automatyczny · github.com/grzesioantosz-ops/tge-raport
+  </p>
+ </div>
+</body></html>"""
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"⚡ TGE RDN {delivery_date.strftime('%d.%m.%Y')} — brak danych"
+    msg["From"] = SMTP_USER
+    msg["To"] = RECIPIENT
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+        server.ehlo()
+        server.starttls()
+        server.login(SMTP_USER, SMTP_PASS)
+        server.sendmail(SMTP_USER, RECIPIENT, msg.as_string())
+    print(f"✓ Email o braku danych wysłany do: {RECIPIENT}")
+
+
 # ── Główna logika ─────────────────────────────────────────────────────────────
 
 def main():
+    today = date.today()
+    delivery_date = today + timedelta(days=1)
+
+    # Weekendy: TGE publikuje dane dla niedzieli już w piątek (~13:30)
+    # W sobotę o 15:30 dane dla niedzieli są już dostępne — nie pomijamy soboty.
+    # Jedynie niedziela jest dniem bez publikacji (brak sesji na poniedziałek w niedzielę).
+    if today.weekday() == 6:  # niedziela
+        print("ℹ️  Niedziela — TGE nie prowadzi sesji. Pomijam wysyłkę.")
+        sys.exit(0)  # sukces — workflow nie jest czerwony
+
     print("Pobieranie danych z TGE...")
     try:
         delivery_date, avg_pln, rows = fetch_tge_data()
     except Exception as e:
         print(f"✗ Błąd pobierania danych: {e}")
+        # Próbujemy wysłać email o błędzie zamiast po prostu się wyłożyć
+        try:
+            send_no_data_email(delivery_date,
+                f"Nie udało się pobrać danych z TGE ani PSE.<br>Szczegóły: {e}")
+        except Exception:
+            pass
         sys.exit(1)
 
     if not rows:
-        print("✗ Brak danych godzinowych (TGE mogło jeszcze nie opublikować wyników).")
-        sys.exit(1)
+        msg = ("TGE jeszcze nie opublikowało wyników fixingu dla tej doby. "
+               "Dane pojawiają się zwykle między 13:30 a 15:00.")
+        print(f"⚠ Brak danych godzinowych. {msg}")
+        try:
+            send_no_data_email(delivery_date, msg)
+        except Exception as e2:
+            print(f"✗ Błąd wysyłki emaila o braku danych: {e2}")
+        # Kończymy z kodem 0 — brak danych to nie błąd skryptu
+        sys.exit(0)
 
     print(f"✓ Pobrano {len(rows)} godzin. Średnia TGeBase: {avg_pln} PLN/MWh")
 
