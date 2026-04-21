@@ -471,7 +471,7 @@ def send_no_data_email(delivery_date: date, reason: str):
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
         server.sendmail(SMTP_USER, RECIPIENTS, msg.as_string())
-    print(f"✓ Email o braku danych wysłany do: {','.join(RECIPIENTS)}"
+    print(f"✓ Email o braku danych wysłany do: {','.join(RECIPIENTS)}")
 
 
 # ── Główna logika ─────────────────────────────────────────────────────────────
