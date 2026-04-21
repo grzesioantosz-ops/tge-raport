@@ -44,7 +44,7 @@ RECIPIENTS = [r for r in [_r1, _r2] if r]
 RECIPIENT = RECIPIENTS[0] if RECIPIENTS else SMTP_USER
 
 TGE_URL = "https://tge.pl/energia-elektryczna-rdn-tge-base"
-PSE_RCE_URL = "https://api.raporty.pse.pl/api/rce-pln"45
+PSE_RCE_URL = "https://api.raporty.pse.pl/api/rce-pln"
 
 HEADERS = {
     "User-Agent": (
