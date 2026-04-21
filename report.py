@@ -38,10 +38,13 @@ SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
-RECIPIENT = os.getenv("RECIPIENT", SMTP_USER)
+_r1 = os.getenv("RECIPIENT", SMTP_USER).strip()
+_r2 = os.getenv("RECIPIENT2", "amsted@wp.pl").strip()
+RECIPIENTS = [r for r in [_r1, _r2] if r]
+RECIPIENT = RECIPIENTS[0] if RECIPIENTS else SMTP_USER
 
 TGE_URL = "https://tge.pl/energia-elektryczna-rdn-tge-base"
-PSE_RCE_URL = "https://api.raporty.pse.pl/api/rce-pln"
+PSE_RCE_URL = "https://api.raporty.pse.pl/api/rce-pln"45
 
 HEADERS = {
     "User-Agent": (
@@ -409,7 +412,7 @@ def send_email(subject: str, html_body: str, chart_png: bytes):
     msg = MIMEMultipart("related")
     msg["Subject"] = subject
     msg["From"] = SMTP_USER
-    msg["To"] = RECIPIENT
+    msg["To"] = ",".join(RECIPIENTS)
 
     # HTML part
     alternative = MIMEMultipart("alternative")
@@ -426,7 +429,7 @@ def send_email(subject: str, html_body: str, chart_png: bytes):
         server.ehlo()
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, RECIPIENT, msg.as_string())
+        server.sendmail(SMTP_USER, RECIPIENTS, msg.as_string())
         print(f"✓ Email wysłany do: {RECIPIENT}")
 
 
@@ -460,15 +463,15 @@ def send_no_data_email(delivery_date: date, reason: str):
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"⚡ TGE RDN {delivery_date.strftime('%d.%m.%Y')} — brak danych"
     msg["From"] = SMTP_USER
-    msg["To"] = RECIPIENT
+    msg["To"] =  ",".join(RECIPIENTS)
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
         server.ehlo()
         server.starttls()
         server.login(SMTP_USER, SMTP_PASS)
-        server.sendmail(SMTP_USER, RECIPIENT, msg.as_string())
-    print(f"✓ Email o braku danych wysłany do: {RECIPIENT}")
+        server.sendmail(SMTP_USER, RECIPIENTS, msg.as_string())
+    print(f"✓ Email o braku danych wysłany do: {','.join(RECIPIENTS}")
 
 
 # ── Główna logika ─────────────────────────────────────────────────────────────
