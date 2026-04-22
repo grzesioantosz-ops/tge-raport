@@ -39,7 +39,7 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 _r1 = os.getenv("RECIPIENT", SMTP_USER).strip()
-_r2 = os.getenv("RECIPIENT2", "puhamsted@gmail.com").strip()
+_r2 = os.getenv("RECIPIENT2", "fuhamsted@gmail.com").strip()
 RECIPIENTS = [r for r in [_r1, _r2] if r]
 RECIPIENT = RECIPIENTS[0] if RECIPIENTS else SMTP_USER
 
