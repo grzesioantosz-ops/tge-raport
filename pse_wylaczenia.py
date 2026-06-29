@@ -52,12 +52,14 @@ def fetch_rce(date_str: str) -> list[dict]:
 
 
 def build_series(recs: list[dict]):
-    times, prices = [], []
-    for rec in recs:
-        raw = rec.get("dtime", rec.get("udtczas_oreb", ""))
-        label = datetime.fromisoformat(str(raw)).strftime("%H:%M") if "T" in str(raw) else str(raw)[:5]
-        times.append(label)
-        prices.append(float(rec.get("rce_pln", 0)))
+    # ceny w kolejności kwadransów (recs są już posortowane)
+    prices = [float(rec.get("rce_pln", 0)) for rec in recs]
+    # czas POCZĄTKU każdego kwadransa liczymy z pozycji: kwadrans i zaczyna się o i*15 min.
+    # To jest odporne na dowolny format pola dtime z API.
+    times = []
+    for i in range(len(prices)):
+        h, m = divmod(i * 15, 60)
+        times.append(f"{h:02d}:{m:02d}")
     return times, prices
 
 
@@ -158,38 +160,42 @@ def build_body(times, prices, okna, date_str):
     wd = ["poniedziałek","wtorek","środa","czwartek","piątek","sobota","niedziela"][d.weekday()]
     p = np.array(prices)
     n_below = int((p <= PROG_ZL).sum())
+    glowne = [o for o in okna if not o["krotkie"]]
 
     L = []
-    L.append(f"HARMONOGRAM WYŁĄCZEŃ – Leśnice II ({CAPACITY_KWP} kWp)")
-    L.append(f"Dzień: {wd}, {d.strftime('%-d.%-m.%Y')}")
-    L.append(f"Próg opłacalności: {PROG_ZL:.0f} zł/MWh")
-    L.append("=" * 52)
+    L.append("=" * 56)
+    L.append(f"  HARMONOGRAM WYŁĄCZEŃ — LEŚNICE II ({CAPACITY_KWP} kWp)")
+    L.append(f"  {wd}, {d.strftime('%-d.%-m.%Y')}")
+    L.append("=" * 56)
     L.append("")
 
-    glowne = [o for o in okna if not o["krotkie"]]
     if not glowne:
-        L.append(">>> BRAK OKIEN WYŁĄCZEŃ — produkcja opłacalna przez całą dobę.")
-    else:
-        L.append("WYŁĄCZ FARMĘ W OKNACH:")
+        L.append("  >>> NIE WYŁĄCZAJ — produkcja opłacalna przez całą dobę.")
         L.append("")
-        for o in glowne:
-            dł = o["n_kw"] * 15
-            h, m = divmod(dł, 60)
+    else:
+        wiele = len(glowne) > 1
+        for idx, o in enumerate(glowne, 1):
+            minut = o["n_kw"] * 15
+            h, m = divmod(minut, 60)
             dur = f"{h}h {m:02d}min" if h else f"{m}min"
-            L.append(f"  ►  WYŁĄCZ {o['t_start']}  →  WŁĄCZ {o['t_end']}   ({dur})")
-            L.append(f"     min. cena {o['min']:.2f} zł/MWh, śr. {o['sr']:.2f} zł/MWh, {o['n_kw']} kwadransów")
+            naglowek = f"  OKNO {idx}:" if wiele else "  DZIAŁANIE NA JUTRO:"
+            L.append(naglowek)
+            L.append(f"     ►► WYŁĄCZ elektrownię o   {o['t_start']}")
+            L.append(f"     ►► WŁĄCZ  elektrownię o   {o['t_end']}")
+            L.append(f"        (wyłączenie na {dur}; min. cena {o['min']:.2f} zł/MWh)")
             L.append("")
 
+    L.append("-" * 56)
     krotkie = [o for o in okna if o["krotkie"]]
     if krotkie:
-        L.append(f"Pominięto {len(krotkie)} okno/okna krótsze niż {MIN_OKNO_KW*15} min (do decyzji ręcznej):")
+        L.append(f"Krótkie okna < {MIN_OKNO_KW*15} min (do decyzji ręcznej):")
         for o in krotkie:
-            L.append(f"  · {o['t_start']}–{o['t_end']} (min {o['min']:.2f} zł/MWh)")
+            L.append(f"   {o['t_start']}–{o['t_end']} (min {o['min']:.2f} zł/MWh)")
         L.append("")
 
-    L.append("-" * 52)
+    L.append(f"Próg opłacalności: {PROG_ZL:.0f} zł/MWh")
     L.append(f"Kwadransów poniżej progu: {n_below}/{len(prices)} ({n_below/4:.2f} godz.)")
-    L.append(f"Min. cena doby: {p.min():.2f} zł/MWh  |  Maks.: {p.max():.2f} zł/MWh")
+    L.append(f"Cena doby: min {p.min():.2f}  |  maks {p.max():.2f} zł/MWh")
     L.append("")
     L.append("Wykres dobowy w załączniku. Źródło: api.raporty.pse.pl/api/rce-pln")
     return "\n".join(L)
