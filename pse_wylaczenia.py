@@ -38,11 +38,11 @@ def fetch_rce(date_str: str) -> list[dict]:
     recs = data.get("value", data) if isinstance(data, dict) else data
     if not recs:
         raise ValueError(f"Brak cen RCE dla {date_str}. Dane D+1 publikowane są po ~14:00.")
-try:
+    try:
         recs = sorted(recs, key=lambda x: int(x.get("period", 0)))
     except (ValueError, TypeError):
         recs = sorted(recs, key=lambda x: str(x.get("dtime", "")))
-  return recs
+    return recs
 
 
 def build_series(recs: list[dict]):
