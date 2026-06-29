@@ -18,6 +18,9 @@ import matplotlib.patches as mpatches
 import numpy as np
 from datetime import datetime, timedelta
 import os
+import ssl
+import smtplib
+from email.message import EmailMessage
 
 # ─────────────── KONFIGURACJA ───────────────
 PROG_ZL      = float(os.environ.get("PROG_ZL", 24.0))     # próg [zł/MWh]; poniżej = wyłącz
@@ -192,6 +195,42 @@ def build_body(times, prices, okna, date_str):
     return "\n".join(L)
 
 
+def wyslij_mail(subject, body, attachment_path):
+    """Wysyła harmonogram mailem przez SMTP. Używa sekretów jak w workflow TGE:
+    SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, RECIPIENT, RECIPIENT2."""
+    host = os.environ.get("SMTP_HOST")
+    port = int(os.environ.get("SMTP_PORT", 587))
+    user = os.environ.get("SMTP_USER")
+    pwd  = os.environ.get("SMTP_PASS")
+    rcpts = [a for a in (os.environ.get("RECIPIENT"), os.environ.get("RECIPIENT2")) if a]
+
+    if not (host and user and pwd and rcpts):
+        print("Pomijam wysyłkę maila — brak konfiguracji SMTP/odbiorców (uruchomienie lokalne).")
+        return
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = user
+    msg["To"] = ", ".join(rcpts)
+    msg.set_content(body)
+
+    with open(attachment_path, "rb") as f:
+        msg.add_attachment(f.read(), maintype="image", subtype="png",
+                           filename=os.path.basename(attachment_path))
+
+    ctx = ssl.create_default_context()
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, context=ctx, timeout=30) as s:
+            s.login(user, pwd)
+            s.send_message(msg)
+    else:
+        with smtplib.SMTP(host, port, timeout=30) as s:
+            s.starttls(context=ctx)
+            s.login(user, pwd)
+            s.send_message(msg)
+    print(f"Mail wysłany do: {', '.join(rcpts)}")
+
+
 def main():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     date_str = os.environ.get("PSE_DATE") or tomorrow
@@ -203,10 +242,11 @@ def main():
     chart = os.environ.get("CHART_PATH", f"wylaczenia_{date_str}.png")
     body  = os.environ.get("BODY_PATH",  f"wylaczenia_{date_str}.txt")
     generate_chart(times, prices, okna, date_str, chart)
+    tresc = build_body(times, prices, okna, date_str)
     with open(body, "w", encoding="utf-8") as f:
-        f.write(build_body(times, prices, okna, date_str))
+        f.write(tresc)
 
-    print(build_body(times, prices, okna, date_str))
+    print(tresc)
 
     # Zwięzłe podsumowanie do tematu maila
     glowne = [o for o in okna if not o["krotkie"]]
@@ -216,10 +256,8 @@ def main():
     else:
         subject_info = "brak wylaczen"
 
-    if os.environ.get("GITHUB_ENV"):
-        with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as f:
-            f.write(f"CHART_FILE={chart}\nBODY_FILE={body}\nREPORT_DATE={date_str}\n")
-            f.write(f"SUBJECT_INFO={subject_info}\n")
+    subject = f"Lesnice II {date_str} - {subject_info}"
+    wyslij_mail(subject, tresc, chart)
 
 
 if __name__ == "__main__":
