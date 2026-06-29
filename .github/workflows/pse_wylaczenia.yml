@@ -2,8 +2,6 @@ name: Harmonogram wyłączeń – Leśnice II
 
 on:
   schedule:
-    # 21:00 czasu polskiego. 19:00 UTC = 21:00 CEST (lato).
-    # Zimą (czas CET) zmień na "0 20 * * *", by trafić w 21:00.
     - cron: "0 19 * * *"
   workflow_dispatch:
     inputs:
@@ -21,48 +19,34 @@ jobs:
     name: Wyznacz okna wyłączeń i wyślij mailem
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Pobierz repozytorium
         uses: actions/checkout@v4
-
       - name: Konfiguracja Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-
       - name: Instalacja zależności
         run: pip install --upgrade pip requests matplotlib numpy
-
-      - name: Wyznacz harmonogram wyłączeń
+      - name: Wyznacz harmonogram i wyślij mailem
         env:
           PSE_DATE:   ${{ github.event.inputs.data_date }}
           PROG_ZL:    ${{ github.event.inputs.prog_zl }}
           CHART_PATH: wylaczenia_chart.png
           BODY_PATH:  wylaczenia_body.txt
+          SMTP_HOST:  ${{ secrets.SMTP_HOST }}
+          SMTP_PORT:  ${{ secrets.SMTP_PORT }}
+          SMTP_USER:  ${{ secrets.SMTP_USER }}
+          SMTP_PASS:  ${{ secrets.SMTP_PASS }}
+          RECIPIENT:  ${{ secrets.RECIPIENT }}
+          RECIPIENT2: ${{ secrets.RECIPIENT2 }}
         run: python pse_wylaczenia.py
-
-      - name: Wyślij harmonogram e-mailem
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 587
-          secure: false
-          username: ${{ secrets.MAIL_USERNAME }}
-          password: ${{ secrets.MAIL_PASSWORD }}
-          from: "Leśnice II PV <${{ secrets.MAIL_USERNAME }}>"
-          to: ${{ secrets.MAIL_TO }}
-          subject: "Leśnice II ${{ env.REPORT_DATE }} – ${{ env.SUBJECT_INFO }}"
-          body_file: wylaczenia_body.txt
-          attachments: wylaczenia_chart.png
-          content_type: text/plain
-
       - name: Archiwizuj jako artefakt (30 dni)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wylaczenia-${{ env.REPORT_DATE }}
+          name: wylaczenia
           path: |
             wylaczenia_chart.png
             wylaczenia_body.txt
