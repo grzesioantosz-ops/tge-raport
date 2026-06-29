@@ -30,7 +30,7 @@ CAPACITY_KWP = 996
 
 def fetch_rce(date_str: str) -> list[dict]:
     url = (f"https://api.raporty.pse.pl/api/rce-pln"
-           f"?$filter=business_date eq '{date_str}'&$orderby=period asc&$top=120")
+           f"?$filter=business_date eq '{date_str}")
     r = requests.get(url, headers={"Accept": "application/json",
                                    "User-Agent": "Mozilla/5.0"}, timeout=30)
     r.raise_for_status()
@@ -38,7 +38,11 @@ def fetch_rce(date_str: str) -> list[dict]:
     recs = data.get("value", data) if isinstance(data, dict) else data
     if not recs:
         raise ValueError(f"Brak cen RCE dla {date_str}. Dane D+1 publikowane są po ~14:00.")
-    return recs
+try:
+        recs = sorted(recs, key=lambda x: int(x.get("period", 0)))
+    except (ValueError, TypeError):
+        recs = sorted(recs, key=lambda x: str(x.get("dtime", "")))
+  return recs
 
 
 def build_series(recs: list[dict]):
