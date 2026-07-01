@@ -99,15 +99,23 @@ def wyznacz_okna(times, prices):
     if not surowe:
         return []
 
-    # 2. scalanie okien rozdzielonych krótką przerwą o niskich cenach
+    # 2. scalanie okien rozdzielonych krótką przerwą
+    #    Przy RĘCZNYM wyłączaniu nie opłaca się włączać farmy na krótko między
+    #    dwoma oknami wyłączeń — więcej zachodu niż zysku. Dlatego krótką przerwę
+    #    (≤ SCAL_PRZERWA kwadransów) scalamy ZAWSZE, niezależnie od ceny w przerwie.
+    #    SCAL_PROG_ZL pozostaje bezpiecznikiem dla przerw nieco dłuższych: tam
+    #    scalamy tylko, gdy cena w przerwie nie skoczyła wysoko.
     scalone = [surowe[0]]
     for blk in surowe[1:]:
         prev = scalone[-1]
         przerwa = blk[0] - prev[1]                  # liczba kwadransów między oknami
         if przerwa <= SCAL_PRZERWA:
-            maxc = max(prices[prev[1]:blk[0]]) if przerwa > 0 else -1e9
+            prev[1] = blk[1]                         # krótka przerwa -> scal zawsze
+            continue
+        if przerwa <= SCAL_PRZERWA * 2:
+            maxc = max(prices[prev[1]:blk[0]])
             if maxc < SCAL_PROG_ZL:
-                prev[1] = blk[1]                    # scal
+                prev[1] = blk[1]                     # średnia przerwa -> scal, jeśli tanio
                 continue
         scalone.append(blk)
 
