@@ -23,10 +23,18 @@ import smtplib
 from email.message import EmailMessage
 
 # ─────────────── KONFIGURACJA ───────────────
-PROG_ZL      = float(os.environ.get("PROG_ZL", 24.0))     # próg [zł/MWh]; poniżej = wyłącz
-MIN_OKNO_KW  = int(os.environ.get("MIN_OKNO_KW", 2))      # min. długość okna [kwadranse] (2 = 30 min)
-SCAL_PRZERWA = int(os.environ.get("SCAL_PRZERWA", 4))     # scal okna, gdy dzieli je ≤ N kwadransów (4 = 1h)
-SCAL_PROG_ZL = float(os.environ.get("SCAL_PROG_ZL", 100)) # ...i gdy maks. cena w przerwie < tej wartości
+def _env_float(nazwa, domyslna):
+    v = os.environ.get(nazwa, "")
+    return float(v) if v not in (None, "") else float(domyslna)
+
+def _env_int(nazwa, domyslna):
+    v = os.environ.get(nazwa, "")
+    return int(v) if v not in (None, "") else int(domyslna)
+
+PROG_ZL      = _env_float("PROG_ZL", 24.0)     # próg [zł/MWh]; poniżej = wyłącz
+MIN_OKNO_KW  = _env_int("MIN_OKNO_KW", 2)      # min. długość okna [kwadranse] (2 = 30 min)
+SCAL_PRZERWA = _env_int("SCAL_PRZERWA", 4)     # scal okna, gdy dzieli je ≤ N kwadransów (4 = 1h)
+SCAL_PROG_ZL = _env_float("SCAL_PROG_ZL", 100) # ...i gdy maks. cena w przerwie < tej wartości
 CAPACITY_KWP = 996
 # ────────────────────────────────────────────
 
