@@ -1,7 +1,12 @@
 name: Harmonogram wyłączeń Leśnice II
 on:
   schedule:
-    - cron: "0 19 * * *"
+    # 14:35 UTC = 16:35 latem (CEST) / 15:35 zimą (CET).
+    # Celowo wczesne popołudnie: ceny PSE na jutro są już po ~14:00,
+    # a GitHub często opóźnia crony o kilkadziesiąt min/kilka godzin,
+    # więc wczesna pora daje duży zapas, by mail dotarł tego samego dnia.
+    # Nietypowa minuta (:35) omija szczyt kolejki pełnych godzin.
+    - cron: "35 14 * * *"
   workflow_dispatch:
     inputs:
       data_date:
