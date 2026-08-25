@@ -1,0 +1,29 @@
+name: Keepalive - anty-uspienie
+
+# GitHub wylacza scheduled workflows po 60 dniach bezczynnosci repo.
+# Ten workflow co 2 tygodnie robi pusty commit ("aktywnosc"), przez co
+# licznik bezczynnosci nigdy nie dobija do 60 dni. Chroni CALE repo,
+# czyli oba workflow (Dzienny raport TGE oraz Harmonogram wylaczen).
+
+on:
+  schedule:
+    - cron: "17 3 1,15 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v4
+
+      - name: Pusty commit odswiezajacy aktywnosc repo
+        run: |
+          git config user.name "keepalive-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git commit --allow-empty -m "keepalive: odswiezenie aktywnosci repo"
+          git push
