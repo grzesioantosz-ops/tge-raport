@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 import os
 import ssl
 import smtplib
@@ -254,8 +255,11 @@ def wyslij_mail(subject, body, attachment_path):
 
 
 def main():
-    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    date_str = os.environ.get("PSE_DATE") or tomorrow
+    teraz = datetime.now(ZoneInfo("Europe/Warsaw"))
+    # PSE publikuje ceny D+1 ok. 14:00. Jeśli GitHub opóźnił uruchomienie za północ,
+    # przed 14:00 bierzemy bieżącą dobę (to ona była "jutrem" w chwili planowania).
+    cel = teraz + timedelta(days=1) if teraz.hour >= 14 else teraz
+    date_str = os.environ.get("PSE_DATE") or cel.strftime("%Y-%m-%d")
 
     recs = fetch_rce(date_str)
     times, prices = build_series(recs)
